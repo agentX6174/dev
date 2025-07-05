@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Інвокер: Вічний Похід</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Запобігає прокручуванню сторінки */
+            background-color: #333; /* Темний фон сторінки */
+            font-family: "Inter", sans-serif; /* Використовуємо шрифт Inter */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* Забезпечує, що body займає всю висоту вікна */
+        }
+        canvas {
+            display: block; /* Прибирає зайві пробіли під canvas */
+            margin: 0 auto; /* Центрує canvas */
+            border-radius: 10px; /* Закруглені кути для ігрового поля */
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5); /* Неонове світіння */
+        }
+        #scoreDisplay {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #00ffff; /* Неоновий колір */
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+            z-index: 10;
+        }
+        #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            font-size: 36px;
+            text-align: center;
+            z-index: 20;
+            display: none; /* Приховано за замовчуванням */
+        }
+        #gameOverScreen button {
+            background-color: #00ffff;
+            color: #1a001a;
+            border: none;
+            padding: 15px 30px;
+            font-size: 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+            box-shadow: 0 0 15px #00ffff;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        #gameOverScreen button:hover {
+            background-color: #00e6e6;
+            box-shadow: 0 0 25px #00ffff;
+        }
+    </style>
+</head>
+<body>
+    <div id="scoreDisplay">Рахунок: 0</div>
+    <div id="gameOverScreen">
+        <p>Гру закінчено!</p>
+        <p>Ваш рахунок: <span id="finalScore">0</span></p>
+        <button id="sendScoreButton">Надіслати рахунок у Telegram</button>
+        <button id="restartGameButton">Грати знову</button>
+    </div>
+
+    <!-- Сцена для гри буде тут -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+    <script>
+        // Конфігурація гри Phaser
+        const config = {
+            type: Phaser.AUTO, // Автоматичний вибір WebGL або Canvas
+            width: 800,        // Ширина ігрової області
+            height: 600,       // Висота ігрової області
+            backgroundColor: '#1a001a', // Темний, магічний фон арени
+            scene: {
+                preload: preload, // Функція для завантаження ресурсів
+                create: create,   // Функція для ініціалізації гри
+                update: update    // Функція, що викликається кожен кадр
+            },
+            physics: {
+                default: 'arcade', // Використовуємо спрощену аркадну фізику
+                arcade: {
+                    debug: false   // Встановіть true, щоб бачити межі фізичних тіл (для відладки)
+                }
+            }
+        };
+
+        // Створення нового екземпляра гри Phaser
+        const game = new Phaser.Game(config);
+
+        let playerContainer; // Змінна для контейнера гравця (гравець + текст)
+        let player;          // Змінна для нашого гравця (круг)
+        let invokerText;     // Змінна для тексту "Інвокер"
+        let cursors;         // Змінна для керування з клавіатури (для тестування на ПК)
+        let score = 0;       // Змінна для рахунку
+        let scoreDisplay;    // Елемент для відображення рахунку
+
+        // Функція preload: завантажуємо всі необхідні ресурси (зображення, аудіо тощо)
+        function preload() {
+            // На цьому етапі нічого не завантажуємо, будемо малювати прості фігури
+        }
+
+        // Функція create: налаштовуємо ігровий світ, створюємо об'єкти
+        function create() {
+            // Скидаємо рахунок на початку нової гри
+            score = 0;
+            updateScoreDisplay();
+
+            // Приховуємо екран завершення гри
+            document.getElementById('gameOverScreen').style.display = 'none';
+
+            // Створення гравця (Інвокера)
+            player = this.add.circle(
+                0, // Початкова позиція X відносно контейнера
+                0, // Початкова позиція Y відносно контейнера
+                20, // Радіус круга
+                0xffffff // Колір круга (білий, щоб виділявся)
+            );
+            player.setOrigin(0.5); // Встановлюємо точку прив'язки в центрі
+
+            // Додаємо текст "Інвокер" під гравцем
+            invokerText = this.add.text(0, player.radius + 10, 'Інвокер', {
+                fontSize: '16px',
+                fill: '#FFF',
+                fontFamily: 'Inter'
+            }).setOrigin(0.5); // Центруємо текст
+
+            // Додаємо гравця та текст у контейнер, щоб вони рухались разом
+            playerContainer = this.add.container(
+                config.width / 2,  // Початкова позиція X контейнера (центр екрану)
+                config.height / 2, // Початкова позиція Y контейнера (центр екрану)
+                [player, invokerText]
+            );
+            this.physics.add.existing(playerContainer); // Додаємо фізику до контейнера
+            playerContainer.body.setCollideWorldBounds(true); // Контейнер не може вийти за межі екрану
+
+            // Налаштування вводу з клавіатури (для тестування)
+            cursors = this.input.keyboard.createCursorKeys();
+
+            // Додаємо обробник для кліків/торкань екрану
+            this.input.on('pointerdown', function (pointer) {
+                // Переміщуємо гравця до місця кліку/торкання
+                this.tweens.add({
+                    targets: playerContainer,
+                    x: pointer.x,
+                    y: pointer.y,
+                    duration: 200,
+                    ease: 'Power1'
+                });
+
+                // Приклад збільшення рахунку при кліку (для тестування)
+                score += 10;
+                updateScoreDisplay();
+            }, this);
+
+            // Отримуємо елемент для відображення рахунку
+            scoreDisplay = document.getElementById('scoreDisplay');
+
+            // Обробники кнопок на екрані завершення гри
+            document.getElementById('sendScoreButton').onclick = sendScoreToTelegram;
+            document.getElementById('restartGameButton').onclick = restartGame;
+
+            // Приклад виклику Game Over через 10 секунд (для демонстрації)
+            this.time.delayedCall(10000, gameOver, [], this);
+        }
+
+        // Функція update: оновлюється кожен кадр, тут реалізуємо логіку гри
+        function update() {
+            const playerSpeed = 200;
+
+            playerContainer.body.setVelocity(0);
+
+            if (cursors.left.isDown) {
+                playerContainer.body.setVelocityX(-playerSpeed);
+            } else if (cursors.right.isDown) {
+                playerContainer.body.setVelocityX(playerSpeed);
+            }
+
+            if (cursors.up.isDown) {
+                playerContainer.body.setVelocityY(-playerSpeed);
+            } else if (cursors.down.isDown) {
+                playerContainer.body.setVelocityY(playerSpeed);
+            }
+        }
+
+        // Функція для оновлення відображення рахунку
+        function updateScoreDisplay() {
+            if (scoreDisplay) {
+                scoreDisplay.textContent = `Рахунок: ${score}`;
+            }
+        }
+
+        // Функція для завершення гри
+        function gameOver() {
+            // Зупиняємо всі рухи гравця
+            playerContainer.body.setVelocity(0);
+            // Вимикаємо ввід
+            game.input.enabled = false;
+
+            // Відображаємо екран завершення гри
+            const gameOverScreen = document.getElementById('gameOverScreen');
+            const finalScoreSpan = document.getElementById('finalScore');
+            finalScoreSpan.textContent = score;
+            gameOverScreen.style.display = 'flex';
+        }
+
+        // Функція для надсилання рахунку в Telegram
+        function sendScoreToTelegram() {
+            // Перевіряємо, чи доступний TelegramGameProxy
+            if (window.TelegramGameProxy) {
+                // Надсилаємо рахунок. `true` означає, що гравець завершив гру.
+                // `disable_edit_message` (false) означає, що повідомлення з грою буде оновлено.
+                // `inline_message_id` або `chat_id` та `message_id` можуть бути використані для оновлення конкретного повідомлення.
+                // Для простоти, ми просто надсилаємо рахунок.
+                window.TelegramGameProxy.postEvent('setScore', {
+                    score: score,
+                    // user_id: <якщо ви можете отримати ID користувача з Telegram, додайте сюди>
+                    // is_finished: true, // Вказує, що гра завершена
+                    // disable_edit_message: false // Оновити повідомлення в чаті
+                });
+                console.log(`Рахунок ${score} надіслано в Telegram.`);
+                alert('Рахунок надіслано в Telegram!'); // Використовуємо alert для демонстрації, але краще замінити на кастомний UI
+            } else {
+                console.warn('TelegramGameProxy не доступний. Можливо, гра не запущена через Telegram.');
+                alert('TelegramGameProxy не доступний. Рахунок не надіслано.');
+            }
+        }
+
+        // Функція для перезапуску гри
+        function restartGame() {
+            // Перезавантажуємо сцену
+            game.scene.stop('default'); // Зупиняємо поточну сцену
+            game.scene.start('default'); // Запускаємо її знову
+            game.input.enabled = true; // Вмикаємо ввід
+        }
+    </script>
+</body>
+</html>
