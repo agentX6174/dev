@@ -1,518 +1,435 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Інвокер: Вічний Похід</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background-color: #1a1a2e;
-            font-family: "Inter", sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            position: relative; /* Для позиціонування елементів UI */
-        }
-        canvas {
-            display: block;
-            margin: 0 auto;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-        }
-        /* Стилі для відображення рахунку та здоров'я */
-        #scoreDisplay, #healthDisplay {
-            position: absolute;
-            top: 20px;
-            color: #00ffff;
-            font-size: 24px;
-            font-weight: bold;
-            text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
-            z-index: 10;
-        }
-        #scoreDisplay {
-            left: 20px;
-        }
-        #healthDisplay {
-            right: 20px;
-            color: #ff0000; /* Колір для здоров'я */
-            text-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000;
-        }
-        /* Стилі для екрану завершення гри */
-        #gameOverScreen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: #fff;
-            font-size: 36px;
-            text-align: center;
-            z-index: 20;
-            display: none; /* Приховано за замовчуванням */
-        }
-        #gameOverScreen button {
-            background-color: #00ffff;
-            color: #1a001a;
-            border: none;
-            padding: 15px 30px;
-            font-size: 24px;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-top: 20px;
-            box-shadow: 0 0 15px #00ffff;
-            transition: background-color 0.3s ease, box-shadow 0.3s ease;
-        }
-        #gameOverScreen button:hover {
-            background-color: #00e6e6;
-            box-shadow: 0 0 25px #00ffff;
-        }
-        /* Стилі для джойстика */
-        #joystick {
-            position: fixed;
-            bottom: 20px;
-            left: 20px; /* Початкова позиція, буде оновлюватися при дотику */
-            width: 100px;
-            height: 100px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            display: none; /* Приховано за замовчуванням, показується при дотику */
-            touch-action: none; /* Запобігає прокручуванню сторінки */
-            transform: translate(-50%, -50%); /* Для центрування джойстика відносно точки дотику */
-        }
-        #joystick-center {
-            width: 40px;
-            height: 40px;
-            background: #ffffff;
-            border-radius: 50%;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%); /* Щоб центр був по центру батьківського елемента */
-        }
-        /* Стилі для кастомного повідомлення */
-        #messageBox {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(0, 0, 0, 0.9);
-            color: #fff;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 15px rgba(0, 255, 255, 0.7);
-            z-index: 100;
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            font-size: 20px;
-        }
-        #messageBox button {
-            margin-top: 15px;
-            background-color: #00ffff;
-            color: #1a001a;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 18px;
-        }
-    </style>
+<meta charset="UTF-8" />
+<title>Гра з меню і панорамуванням</title>
+<style>
+  body { margin:0; overflow:hidden; background:#111; font-family: Arial, sans-serif; }
+  canvas { display:block; background: radial-gradient(#000022, #000000); touch-action: none; }
+
+  #menu, #settings {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.9);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+  }
+  #settings { display: none; }
+  button {
+    font-size: 24px;
+    margin: 10px;
+    padding: 12px 24px;
+    cursor: pointer;
+    border-radius: 8px;
+    border: none;
+    background: #336699;
+    color: white;
+    transition: background 0.3s;
+  }
+  button:hover {
+    background: #5599dd;
+  }
+  label {
+    margin: 10px;
+    font-size: 20px;
+  }
+  select {
+    font-size: 20px;
+    padding: 6px 10px;
+  }
+</style>
 </head>
 <body>
-    <div id="scoreDisplay">Рахунок: 0</div>
-    <div id="healthDisplay">Здоров'я: 3</div>
-    <div id="gameOverScreen">
-        <p>Гру закінчено!</p>
-        <p>Ваш рахунок: <span id="finalScore">0</span></p>
-        <p>Найкращий рахунок: <span id="highScore">0</span></p>
-        <button id="sendScoreButton">Надіслати рахунок у Telegram</button>
-        <button id="restartGameButton">Грати знову</button>
-    </div>
-    <div id="joystick">
-        <div id="joystick-center"></div>
-    </div>
-    <div id="messageBox">
-        <p id="messageText"></p>
-        <button id="messageBoxCloseButton">OK</button>
-    </div>
 
-    <script>
-        // Об'єкт конфігурації гри для легкого налаштування параметрів
-        const GameConfig = {
-            width: 800,
-            height: 600,
-            playerSpeed: 200,
-            projectileSpeed: 300,
-            enemySpeed: 100,
-            initialPlayerHealth: 3,
-            enemySpawnDelay: 2000,
-            projectileShootDelay: 500,
-            enemyDamage: 1, // Скільки здоров'я забирає ворог при зіткненні
-            scorePerKill: 10 // Очки за знищення ворога
-        };
+<div id="menu">
+  <button id="startBtn">Почати гру</button>
+  <button id="settingsBtn">Налаштування</button>
+</div>
 
-        // Конфігурація Phaser гри
-        const config = {
-            type: Phaser.AUTO,
-            width: GameConfig.width,
-            height: GameConfig.height,
-            backgroundColor: '#0f0f23', // Темний фон
-            scene: {
-                preload: preload,
-                create: create,
-                update: update
-            },
-            physics: {
-                default: 'arcade',
-                arcade: {
-                    debug: false // Встановіть true для відображення фізичних тіл (для налагодження)
-                }
-            }
-        };
+<div id="settings">
+  <label for="projectileSelect">Виберіть емодзі снаряду:</label>
+  <select id="projectileSelect">
+    <option value="✨">✨ Блиск</option>
+    <option value="🔥">🔥 Вогонь</option>
+    <option value="❄️">❄️ Лід</option>
+    <option value="⚡">⚡ Блискавка</option>
+  </select>
 
-        // Ініціалізація гри Phaser
-        const game = new Phaser.Game(config);
+<label for="settlerSelect">Виберіть емодзі поселенця:</label>
+<select id="settlerSelect">
+  <option value="🧙‍♂️">🧙‍♂️ Маг</option>
+  <option value="🧟‍♂️">🧟‍♂️ Зомбі</option>
+  <option value="🧛‍♂️">🧛‍♂️ Вампір</option>
+  <option value="👨‍🌾">👨‍🌾 Фермер</option>
+</select>
 
-        // Глобальні змінні гри
-        let player, invokerText, cursors, enemies, projectiles;
-        let score = 0, playerHealth;
-        let scoreDisplay, healthDisplay, gameOver = false, highScore = 0;
-        let enemySpawnEvent, projectileShootEvent; // Зберігаємо посилання на події для їх зупинки
+<label for="enemySelect">Виберіть емодзі ворога:</label>
+<select id="enemySelect">
+  <option value="👹">👹 Демон</option>
+  <option value="👺">👺 Огр</option>
+  <option value="🦹‍♂️">🦹‍♂️ Бандит</option>
+  <option value="👻">👻 Привид</option>
+</select>
+  <button id="backBtn">Назад</button>
+</div>
 
-        // Елементи DOM для UI
-        const joystick = document.getElementById('joystick');
-        const joystickCenter = document.getElementById('joystick-center');
-        let joystickActive = false;
-        let joystickVector = { x: 0, y: 0 }; // Вектор руху джойстика
+<canvas id="game"></canvas>
 
-        const messageBox = document.getElementById('messageBox');
-        const messageText = document.getElementById('messageText');
-        const messageBoxCloseButton = document.getElementById('messageBoxCloseButton');
+<!-- Кнопки зуму -->
+<div id="ui" style="position:fixed;top:10px;right:10px;z-index:10;">
+  <button id="zoomIn" style="font-size:24px;padding:5px 10px;">+</button>
+  <button id="zoomOut" style="font-size:24px;padding:5px 10px;">−</button>
+</div>
 
-        /**
-         * Функція preload: Завантаження ресурсів гри (спрайтів, аудіо тощо).
-         * @param {Phaser.Scene} this - Поточна сцена Phaser.
-         */
-        function preload() {
-            // Тут можна завантажувати спрайти та аудіо, якщо вони будуть.
-            // Наприклад:
-            // this.load.image('player_sprite', 'assets/player.png');
-            // this.load.image('enemy_sprite', 'assets/enemy.png');
-            // this.load.image('projectile_sprite', 'assets/projectile.png');
-            // this.load.audio('shoot_sfx', 'assets/shoot.mp3');
-            // this.load.audio('hit_sfx', 'assets/hit.mp3');
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const zoomInBtn = document.getElementById('zoomIn');
+  const zoomOutBtn = document.getElementById('zoomOut');
+
+  let running = false;
+
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const mapWidth = 3000;
+  const mapHeight = 4000;
+
+  let scale = 1;
+  const minScale = 0.5;
+  const maxScale = 3;
+
+  let cameraX = mapWidth / 2 - canvas.width / 2;
+  let cameraY = mapHeight / 2 - canvas.height / 2;
+
+  let isPanning = false;
+  let lastPanX = 0;
+  let lastPanY = 0;
+
+  let settlerEmoji = '🧙‍♂️';
+  let enemyEmoji = '👹';
+  let wandEmoji = '✨';
+
+  class Entity {
+    constructor(x,y,emoji){
+      this.x = x;
+      this.y = y;
+      this.emoji = emoji;
+      this.size = 32;
+      this.speed = 1 + Math.random();
+      this.target = null;
+      this.cooldown = 0;
+      this.hp = 10;
+    }
+    draw() {
+      const screenX = (this.x - cameraX) * scale;
+      const screenY = (this.y - cameraY) * scale;
+      ctx.font = `${this.size * scale}px serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(this.emoji, screenX, screenY);
+    }
+    distanceTo(entity){
+      const dx = this.x - entity.x;
+      const dy = this.y - entity.y;
+      return Math.sqrt(dx*dx + dy*dy);
+    }
+    moveTowards(targetX, targetY) {
+      let dx = targetX - this.x;
+      let dy = targetY - this.y;
+      let dist = Math.sqrt(dx*dx + dy*dy);
+      if(dist < 1) return;
+      this.x += (dx / dist) * this.speed;
+      this.y += (dy / dist) * this.speed;
+    }
+  }
+
+  let settlers = [];
+  let enemies = [];
+  let projectiles = [];
+
+  function initGame() {
+    settlers = [];
+    enemies = [];
+    projectiles = [];
+    for(let i=0; i<6; i++){
+      settlers.push(new Entity(
+        mapWidth/2 + (Math.random()*200 - 100),
+        mapHeight/2 + (Math.random()*200 - 100),
+        settlerEmoji
+      ));
+    }
+    for(let i=0; i<8; i++){
+      enemies.push(new Entity(
+        Math.random()*mapWidth,
+        Math.random()*mapHeight,
+        enemyEmoji
+      ));
+    }
+  }
+
+  function update(){
+    if(!running) return;
+
+    settlers.forEach(s => {
+      if(s.hp <= 0) return;
+      let nearestEnemy = null;
+      let nearestDist = Infinity;
+      enemies.forEach(e => {
+        if(e.hp <= 0) return;
+        let dist = s.distanceTo(e);
+        if(dist < nearestDist){
+          nearestDist = dist;
+          nearestEnemy = e;
         }
+      });
 
-        /**
-         * Функція create: Ініціалізація ігрових об'єктів та логіки при запуску сцени.
-         * @param {Phaser.Scene} this - Поточна сцена Phaser.
-         */
-        function create() {
-            // Скидання ігрових змінних на початку нової гри
-            score = 0;
-            playerHealth = GameConfig.initialPlayerHealth;
-            gameOver = false;
-            document.getElementById('gameOverScreen').style.display = 'none'; // Приховуємо екран Game Over
-
-            // Отримуємо посилання на елементи UI
-            scoreDisplay = document.getElementById('scoreDisplay');
-            healthDisplay = document.getElementById('healthDisplay');
-            updateScoreDisplay(); // Оновлюємо відображення рахунку
-            updateHealthDisplay(); // Оновлюємо відображення здоров'я
-
-            // Завантажуємо найкращий рахунок з localStorage
-            highScore = localStorage.getItem('invokerHighScore') ? parseInt(localStorage.getItem('invokerHighScore')) : 0;
-
-            // Створення гравця: спочатку графічний об'єкт, потім додаємо фізику
-            let playerGraphic = this.add.circle(GameConfig.width / 2, GameConfig.height / 2, 20, 0x9b59b6).setOrigin(0.5);
-            player = this.physics.add.existing(playerGraphic);
-            player.body.setCircle(20); // Встановлюємо кругле фізичне тіло
-            player.body.setCollideWorldBounds(true); // Гравець не може вийти за межі екрану
-
-            // Текст "Інвокер", що слідує за гравцем
-            invokerText = this.add.text(player.x, player.y + 30, 'Інвокер', {
-                fontSize: '16px',
-                fill: '#FFF',
-                fontFamily: 'Inter'
-            }).setOrigin(0.5);
-
-            // Налаштування вводу з клавіатури (W, S, A, D)
-            cursors = this.input.keyboard.addKeys({
-                up: Phaser.Input.Keyboard.KeyCodes.W,
-                down: Phaser.Input.Keyboard.KeyCodes.S,
-                left: Phaser.Input.Keyboard.KeyCodes.A,
-                right: Phaser.Input.Keyboard.KeyCodes.D
-            });
-
-            // Групи для ворогів та проєктилів (для фізичних взаємодій)
-            enemies = this.physics.add.group();
-            projectiles = this.physics.add.group();
-
-            // Таймер для спауну ворогів
-            enemySpawnEvent = this.time.addEvent({
-                delay: GameConfig.enemySpawnDelay,
-                callback: spawnEnemy,
-                callbackScope: this,
-                loop: true
-            });
-            // Таймер для автоматичного пострілу гравця
-            projectileShootEvent = this.time.addEvent({
-                delay: GameConfig.projectileShootDelay,
-                callback: shootProjectile,
-                callbackScope: this,
-                loop: true
-            });
-
-            // Налаштування колізій та обробників
-            // Зіткнення гравця з ворогом
-            this.physics.add.overlap(player, enemies, handlePlayerEnemyCollision, null, this);
-            // Зіткнення проєктиля з ворогом
-            this.physics.add.overlap(projectiles, enemies, handleProjectileEnemyCollision, null, this);
-
-            // Обробники подій для джойстика (сенсорний ввід)
-            joystick.addEventListener('touchstart', (e) => {
-                e.preventDefault(); // Запобігаємо стандартній поведінці браузера (прокручування)
-                joystickActive = true;
-                const touch = e.touches[0];
-                // Позиціонуємо джойстик по центру першого дотику
-                joystick.style.left = `${touch.clientX}px`;
-                joystick.style.top = `${touch.clientY}px`;
-                joystick.style.display = 'block'; // Показуємо джойстик
-            });
-            joystick.addEventListener('touchmove', (e) => {
-                e.preventDefault();
-                const touch = e.touches[0];
-                const rect = joystick.getBoundingClientRect();
-                const centerX = rect.left + rect.width / 2;
-                const centerY = rect.top + rect.height / 2;
-                let dx = touch.clientX - centerX;
-                let dy = touch.clientY - centerY;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                const maxDistance = 50; // Максимальний радіус руху центра джойстика
-                if (distance > maxDistance) {
-                    dx = (dx / distance) * maxDistance;
-                    dy = (dy / distance) * maxDistance;
-                }
-                joystickVector.x = dx / maxDistance; // Нормалізований вектор X
-                joystickVector.y = dy / maxDistance; // Нормалізований вектор Y
-                joystickCenter.style.transform = `translate(${dx - 20}px, ${dy - 20}px)`; // Переміщення центра джойстика
-            });
-            joystick.addEventListener('touchend', () => {
-                joystickActive = false;
-                joystickVector = { x: 0, y: 0 }; // Скидаємо вектор руху
-                joystickCenter.style.transform = 'translate(-50%, -50%)'; // Повертаємо центр джойстика в початкове положення
-                joystick.style.display = 'none'; // Приховуємо джойстик
-            });
-
-            // Обробники кнопок на екрані Game Over
-            document.getElementById('sendScoreButton').onclick = sendScoreToTelegram;
-            document.getElementById('restartGameButton').onclick = restartGame;
-
-            // Обробник кнопки закриття кастомного повідомлення
-            messageBoxCloseButton.onclick = () => messageBox.style.display = 'none';
-
-            // Ініціалізація Telegram Web App
-            Telegram.WebApp.ready();
-            Telegram.WebApp.expand(); // Розгортаємо Web App на весь екран
+      if(nearestEnemy && nearestDist < 250){
+        s.moveTowards(nearestEnemy.x, nearestEnemy.y);
+        if(s.cooldown <= 0){
+          shootProjectile(s.x, s.y, nearestEnemy.x, nearestEnemy.y);
+          s.cooldown = 50;
         }
-
-        /**
-         * Функція update: Оновлюється кожен кадр гри.
-         * @param {Phaser.Scene} this - Поточна сцена Phaser.
-         */
-        function update() {
-            if (gameOver) return; // Якщо гра закінчена, зупиняємо оновлення
-
-            player.body.setVelocity(0); // Скидаємо швидкість гравця на початку кожного кадру
-
-            // Обробка руху гравця за допомогою клавіатури
-            if (cursors.left.isDown) player.body.setVelocityX(-GameConfig.playerSpeed);
-            else if (cursors.right.isDown) player.body.setVelocityX(GameConfig.playerSpeed);
-            if (cursors.up.isDown) player.body.setVelocityY(-GameConfig.playerSpeed);
-            else if (cursors.down.isDown) player.body.setVelocityY(GameConfig.playerSpeed);
-
-            // Обробка руху гравця за допомогою джойстика (якщо активний)
-            if (joystickActive) {
-                player.body.setVelocityX(GameConfig.playerSpeed * joystickVector.x);
-                player.body.setVelocityY(GameConfig.playerSpeed * joystickVector.y);
-            }
-
-            // Оновлення позиції тексту "Інвокер" відповідно до гравця
-            invokerText.setPosition(player.x, player.y + 30);
-
-            // Вороги переслідують гравця
-            enemies.getChildren().forEach(enemy => {
-                this.physics.moveToObject(enemy, player, GameConfig.enemySpeed);
-            });
-
-            // Знищуємо проєктилі, що вийшли за межі екрану, щоб уникнути витоків пам'яті
-            projectiles.getChildren().forEach(projectile => {
-                if (projectile.x < -10 || projectile.x > GameConfig.width + 10 ||
-                    projectile.y < -10 || projectile.y > GameConfig.height + 10) {
-                    projectile.destroy();
-                }
-            });
+      } else {
+        if(!s.target || s.distanceTo(s.target) < 5){
+          s.target = {
+            x: s.x + (Math.random()*300 - 150),
+            y: s.y + (Math.random()*300 - 150)
+          };
         }
+        s.moveTowards(s.target.x, s.target.y);
+      }
+      if(s.cooldown > 0) s.cooldown--;
+    });
 
-        /**
-         * Функція spawnEnemy: Створює нового ворога за межами екрану.
-         * @param {Phaser.Scene} this - Поточна сцена Phaser.
-         */
-        function spawnEnemy() {
-            if (gameOver) return; // Не створюємо ворогів, якщо гра закінчена
-
-            const side = Math.floor(Math.random() * 4); // Випадкова сторона для спауну (0: верх, 1: право, 2: низ, 3: ліво)
-            let x, y;
-
-            if (side === 0) { x = Math.random() * GameConfig.width; y = -10; } // Зверху
-            else if (side === 1) { x = GameConfig.width + 10; y = Math.random() * GameConfig.height; } // Справа
-            else if (side === 2) { x = Math.random() * GameConfig.width; y = GameConfig.height + 10; } // Знизу
-            else { x = -10; y = Math.random() * GameConfig.height; } // Зліва
-
-            // Створюємо ворога: спочатку графічний об'єкт, потім додаємо фізику
-            let enemyGraphic = this.add.circle(x, y, 10, 0xe74c3c).setOrigin(0.5);
-            const enemy = this.physics.add.existing(enemyGraphic);
-            enemy.body.setCircle(10); // Встановлюємо кругле фізичне тіло
-            enemies.add(enemy); // Додаємо ворога до групи
+    enemies.forEach(e => {
+      if(e.hp <= 0) return;
+      let nearestSettler = null;
+      let nearestDist = Infinity;
+      settlers.forEach(s => {
+        if(s.hp <= 0) return;
+        let dist = e.distanceTo(s);
+        if(dist < nearestDist){
+          nearestDist = dist;
+          nearestSettler = s;
         }
+      });
+      if(nearestSettler){
+        e.moveTowards(nearestSettler.x, nearestSettler.y);
+      }
+    });
 
-        /**
-         * Функція shootProjectile: Створює проєктиль, який летить до найближчого ворога.
-         * @param {Phaser.Scene} this - Поточна сцена Phaser.
-         */
-        function shootProjectile() {
-            if (gameOver) return; // Не стріляємо, якщо гра закінчена
-
-            // Знаходимо найближчого ворога
-            const closestEnemy = enemies.getChildren().sort((a, b) => {
-                const da = Phaser.Math.Distance.Between(a.x, a.y, player.x, player.y);
-                const db = Phaser.Math.Distance.Between(b.x, b.y, player.x, player.y);
-                return da - db;
-            })[0];
-
-            if (!closestEnemy) return; // Якщо ворогів немає, не стріляємо
-
-            // Створюємо проєктиль: спочатку графічний об'єкт, потім додаємо фізику
-            let projectileGraphic = this.add.circle(player.x, player.y, 5, 0x3498db).setOrigin(0.5);
-            const projectile = this.physics.add.existing(projectileGraphic);
-            projectile.body.setCircle(5); // Встановлюємо кругле фізичне тіло
-            projectiles.add(projectile); // Додаємо проєктиль до групи
-
-            // Направляємо проєктиль до найближчого ворога
-            this.physics.moveToObject(projectile, closestEnemy, GameConfig.projectileSpeed);
+    for(let i = projectiles.length -1; i>=0; i--){
+      let p = projectiles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life--;
+      for(let j=0; j<enemies.length; j++){
+        let en = enemies[j];
+        if(en.hp > 0 && distance(p.x,p.y, en.x,en.y) < 20){
+          en.hp -= 5;
+          projectiles.splice(i,1);
+          break;
         }
+      }
+      if(p.life <= 0){
+        projectiles.splice(i,1);
+      }
+    }
 
-        /**
-         * handlePlayerEnemyCollision: Обробляє зіткнення гравця з ворогом.
-         * Зменшує здоров'я гравця.
-         * @param {Phaser.GameObjects.GameObject} playerObj - Об'єкт гравця.
-         * @param {Phaser.GameObjects.GameObject} enemyObj - Об'єкт ворога.
-         */
-        function handlePlayerEnemyCollision(playerObj, enemyObj) {
-            enemyObj.destroy(); // Знищуємо ворога після зіткнення
-            playerHealth -= GameConfig.enemyDamage; // Зменшуємо здоров'я гравця
-            updateHealthDisplay(); // Оновлюємо відображення здоров'я
+    spawnCounter++;
+    if(spawnCounter >= 300){
+      spawnCounter = 0;
+      spawnEnemy();
+    }
 
-            if (playerHealth <= 0) {
-                gameOver = true; // Встановлюємо статус гри як "закінчена"
-                gameOverScreen.call(this); // Викликаємо екран завершення гри
-            }
+    let avgX = 0, avgY = 0, count=0;
+    settlers.forEach(s => { if(s.hp > 0) { avgX+= s.x; avgY+= s.y; count++; } });
+    if(count > 0){
+      avgX /= count;
+      avgY /= count;
+      cameraX = avgX - (canvas.width / scale) / 2;
+      cameraY = avgY - (canvas.height / scale) / 2;
+      cameraX = Math.min(Math.max(0, cameraX), mapWidth - canvas.width / scale);
+      cameraY = Math.min(Math.max(0, cameraY), mapHeight - canvas.height / scale);
+    }
+  }
+
+  function draw(){
+    if(!running) return;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.save();
+    ctx.scale(scale, scale);
+
+    ctx.fillStyle = '#003300';
+    ctx.fillRect(-cameraX, -cameraY, mapWidth, mapHeight);
+    ctx.strokeStyle = '#ffff00';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(-cameraX, -cameraY, mapWidth, mapHeight);
+
+    settlers.forEach(s => { if(s.hp > 0) s.draw(); });
+    enemies.forEach(e => { if(e.hp > 0) e.draw(); });
+
+projectiles.forEach(p => {
+  const screenX = (p.x - cameraX) * scale;
+  const screenY = (p.y - cameraY) * scale;
+  ctx.font = `${12 * scale}px serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText(wandEmoji, screenX, screenY);
+});
+
+
+    ctx.restore();
+  }
+
+  function shootProjectile(fromX, fromY, toX, toY){
+    const angle = Math.atan2(toY - fromY, toX - fromX);
+    const speed = 10;
+    projectiles.push({
+      x: fromX,
+      y: fromY,
+      vx: Math.cos(angle)*speed,
+      vy: Math.sin(angle)*speed,
+      life: 60
+    });
+  }
+
+  function distance(x1,y1,x2,y2){
+    return Math.hypot(x2-x1, y2-y1);
+  }
+
+  canvas.addEventListener('touchstart', e => {
+    if(e.touches.length === 1){
+      isPanning = true;
+      lastPanX = e.touches[0].pageX;
+      lastPanY = e.touches[0].pageY;
+    }
+  });
+  canvas.addEventListener('touchmove', e => {
+    if(isPanning && e.touches.length === 1){
+      e.preventDefault();
+      const touch = e.touches[0];
+      const dx = (lastPanX - touch.pageX) / scale;
+      const dy = (lastPanY - touch.pageY) / scale;
+      cameraX = Math.min(Math.max(0, cameraX + dx), mapWidth - canvas.width / scale);
+      cameraY = Math.min(Math.max(0, cameraY + dy), mapHeight - canvas.height / scale);
+      lastPanX = touch.pageX;
+      lastPanY = touch.pageY;
+    }
+  }, {passive:false});
+  canvas.addEventListener('touchend', e => {
+    if(e.touches.length === 0){
+      isPanning = false;
+    }
+  });
+
+  zoomInBtn.addEventListener('click', ()=>{
+    scale = Math.min(maxScale, scale + 0.1);
+  });
+  zoomOutBtn.addEventListener('click', ()=>{
+    scale = Math.max(minScale, scale - 0.1);
+  });
+
+  let lastTouchDistance = null;
+  canvas.addEventListener('touchmove', e => {
+    if(e.touches.length == 2){
+      e.preventDefault();
+      const dx = e.touches[0].pageX - e.touches[1].pageX;
+      const dy = e.touches[0].pageY - e.touches[1].pageY;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+
+      if(lastTouchDistance){
+        let delta = dist - lastTouchDistance;
+        if(Math.abs(delta) > 2){
+          scale += delta * 0.005;
+          scale = Math.min(maxScale, Math.max(minScale, scale));
         }
+      }
+      lastTouchDistance = dist;
+    }
+  }, {passive:false});
 
-        /**
-         * handleProjectileEnemyCollision: Обробляє зіткнення проєктиля з ворогом.
-         * Знищує обидва об'єкти та збільшує рахунок.
-         * @param {Phaser.GameObjects.GameObject} projectileObj - Об'єкт проєктиля.
-         * @param {Phaser.GameObjects.GameObject} enemyObj - Об'єкт ворога.
-         */
-        function handleProjectileEnemyCollision(projectileObj, enemyObj) {
-            projectileObj.destroy(); // Знищуємо проєктиль
-            enemyObj.destroy(); // Знищуємо ворога
-            score += GameConfig.scorePerKill; // Збільшуємо рахунок
-            updateScoreDisplay(); // Оновлюємо відображення рахунку
-        }
+  canvas.addEventListener('touchend', e => {
+    if(e.touches.length < 2){
+      lastTouchDistance = null;
+    }
+  });
 
-        /**
-         * updateScoreDisplay: Оновлює текст відображення рахунку.
-         */
-        function updateScoreDisplay() {
-            scoreDisplay.textContent = `Рахунок: ${score}`;
-        }
+  const menu = document.getElementById('menu');
+  const settings = document.getElementById('settings');
+  const startBtn = document.getElementById('startBtn');
+  const settingsBtn = document.getElementById('settingsBtn');
+  const backBtn = document.getElementById('backBtn');
+  const projectileSelect = document.getElementById('projectileSelect');
 
-        /**
-         * updateHealthDisplay: Оновлює текст відображення здоров'я.
-         */
-        function updateHealthDisplay() {
-            healthDisplay.textContent = `Здоров'я: ${playerHealth}`;
-        }
+  startBtn.addEventListener('click', () => {
+    menu.style.display = 'none';
+    settings.style.display = 'none';
+    running = true;
+    initGame();
+  });
 
-        /**
-         * gameOverScreen: Відображає екран завершення гри.
-         * @param {Phaser.Scene} this - Поточна сцена Phaser.
-         */
-        function gameOverScreen() {
-            // Зупиняємо всі таймери спауну ворогів та пострілів
-            if (enemySpawnEvent) enemySpawnEvent.remove();
-            if (projectileShootEvent) projectileShootEvent.remove();
+  settingsBtn.addEventListener('click', () => {
+    menu.style.display = 'none';
+    settings.style.display = 'flex';
+  });
 
-            game.input.enabled = false; // Вимикаємо ввід у грі
-            const gameOverScreenDiv = document.getElementById('gameOverScreen');
-            const finalScoreSpan = document.getElementById('finalScore');
-            const highScoreSpan = document.getElementById('highScore');
+  backBtn.addEventListener('click', () => {
+    settings.style.display = 'none';
+    menu.style.display = 'flex';
+  });
 
-            finalScoreSpan.textContent = score; // Відображаємо фінальний рахунок
+  projectileSelect.addEventListener('change', e => {
+    wandEmoji = e.target.value;
+  });
 
-            // Оновлюємо та зберігаємо найкращий рахунок
-            if (score > highScore) {
-                highScore = score;
-                localStorage.setItem('invokerHighScore', highScore); // Зберігаємо в localStorage
-            }
-            highScoreSpan.textContent = highScore; // Відображаємо найкращий рахунок
+  let spawnCounter = 0;
+  function spawnEnemy(){
+    enemies.push(new Entity(
+      Math.random() * mapWidth,
+      Math.random() * mapHeight,
+      enemyEmoji
+    ));
+  }
 
-            gameOverScreenDiv.style.display = 'flex'; // Показуємо екран Game Over
-        }
+  function gameLoop(){
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+  }
+  gameLoop();
 
-        /**
-         * sendScoreToTelegram: Надсилає рахунок у Telegram Web App.
-         */
-        function sendScoreToTelegram() {
-            if (Telegram.WebApp) {
-                Telegram.WebApp.sendData(JSON.stringify({ score: score }));
-                showMessage('Рахунок надіслано в Telegram!');
-            } else {
-                showMessage('Telegram Web App не доступний.');
-            }
-        }
+  window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  });
 
-        /**
-         * restartGame: Перезапускає гру.
-         */
-        function restartGame() {
-            // Перезапускаємо сцену для повної ініціалізації
-            game.scene.stop('default');
-            game.scene.start('default');
-            game.input.enabled = true; // Вмикаємо ввід у грі
-        }
+const settlerSelect = document.getElementById('settlerSelect');
+const enemySelect = document.getElementById('enemySelect');
 
-        /**
-         * showMessage: Відображає кастомне повідомлення.
-         * @param {string} message - Текст повідомлення.
-         */
-        function showMessage(message) {
-            messageText.textContent = message;
-            messageBox.style.display = 'flex';
-        }
-    </script>
+// Ініціалізуємо селекти поточними емодзі
+settlerSelect.value = settlerEmoji;
+enemySelect.value = enemyEmoji;
+
+backBtn.addEventListener('click', () => {
+  settings.style.display = 'none';
+  menu.style.display = 'flex';
+
+  // Зберігаємо вибір емодзі
+  settlerEmoji = settlerSelect.value;
+  enemyEmoji = enemySelect.value;
+
+  // Оновлюємо існуючих персонажів
+  settlers.forEach(s => s.emoji = settlerEmoji);
+  enemies.forEach(e => e.emoji = enemyEmoji);
+});
+
+
+});
+</script>
+
 </body>
 </html>
